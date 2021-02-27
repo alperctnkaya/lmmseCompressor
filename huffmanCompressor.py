@@ -26,7 +26,6 @@ class huffmanCompressor:
                 w_vec = np.reshape(layer.weights[0].numpy(), (1, length))[0]
 
                 codec = HuffmanCodec.from_data(w_vec[k:])
-
                 encoded = codec.encode(w_vec[k:])
                 compressedModelSize = compressedModelSize + len(encoded)
 

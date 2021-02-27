@@ -25,14 +25,12 @@ y_test = keras.utils.to_categorical(y_test, num_classes)
 model = keras.Sequential(
     [
         keras.Input(shape=input_shape),
-        layers.Conv2D(256, kernel_size=(3, 3), activation="relu"),
+        layers.Conv2D(32, kernel_size=(3, 3), activation="relu"),
         layers.MaxPooling2D(pool_size=(2, 2)),
-        layers.Conv2D(256, kernel_size=(3, 3), activation="relu"),
+        layers.Conv2D(64, kernel_size=(3, 3), activation="relu"),
         layers.MaxPooling2D(pool_size=(2, 2)),
         layers.Flatten(),
-        layers.Dropout(0.5),
-        layers.Dense(1000, activation="relu"),
-        layers.Dropout(0.5),
+        layers.Dropout(0.2),
         layers.Dense(num_classes, activation="softmax"),
     ]
 )
@@ -40,10 +38,9 @@ model = keras.Sequential(
 model.summary()
 
 batch_size = 128
-epochs = 2
+epochs = 1
 
 model.compile(loss="categorical_crossentropy", optimizer="adam", metrics=["accuracy"])
 
 model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs, validation_split=0.1)
 
-model.save("keras_mnist_conv")

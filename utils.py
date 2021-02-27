@@ -32,3 +32,7 @@ def partition_codebook(vec, bits, uniform = True):
 
     return partition, codebook
 
+
+def mse_bw_models(model1, model2):
+    for w1, w2 in zip(model1.weights, model2.weights):
+        print(np.mean((w1-w2)**2))
