@@ -1,16 +1,17 @@
 from utils import *
 from decompressor import decompressor
 
+prune = False
 
 class compressor:
 
-    def __init__(self, model=None, k=None, bits=None, uniform=True):
+    def __init__(self, model=None, k=None, bits=None, uniform=True, block_size=0):
 
         if model is not None:
             self.parameters = {}
             self.parameters["a"] = []
             self.parameters["means"] = []
-            self.compressedModel = self.compress(model, k, bits, uniform)
+            self.compressedModel = self.compress(model, k, bits, uniform, block_size)
 
     @classmethod
     def calcAutoCorrelationMatrix(cls, vec, k):
@@ -57,8 +58,8 @@ class compressor:
 
         return encoded
 
-    def compress(self, model, k, bits, uniform):
-        one_to_many = True  # defines the way of serializing weight matrix
+    def compress(self, model, k, bits, uniform, block_size):
+        one_to_many = False  # defines the way of serializing weight matrix
 
         for layer in model.layers:
             if not layer.weights:
@@ -70,21 +71,43 @@ class compressor:
                     length = l * length
 
                 if one_to_many:
-                    w_vec = np.reshape(layer.weights[0].numpy(), (1, length))[0]
+                    vec = np.reshape(layer.weights[0].numpy(), (1, length))[0]
                 else:
                     if len(shape) == 4:
-                        w_vec = np.reshape(np.transpose(layer.weights[0].numpy(), (0, 1, 3, 2)), (1, length))[0]
+                        vec = np.reshape(np.transpose(layer.weights[0].numpy(), (0, 1, 3, 2)), (1, length))[0]
                     else:
-                        w_vec = np.reshape(np.transpose(layer.weights[0].numpy()), (1, length))[0]
+                        vec = np.reshape(np.transpose(layer.weights[0].numpy()), (1, length))[0]
 
-                self.parameters["means"].append(np.mean(w_vec))
+                self.parameters["means"].append(np.mean(vec))
 
-                Rx, MRx = self.calcAutoCorrelationMatrix(w_vec, k)
-                a = np.linalg.solve(MRx, Rx[1:])
-                self.parameters["a"].append(a)
-                diff, prediction = self.predict(w_vec, a, k)
-                partition, codebook = partition_codebook(diff, bits, uniform)
-                encoded = self.encode(w_vec, a, k, codebook, partition)
+
+                if (block_size == 0) or (block_size > len(vec)):
+                    _block_size = len(vec)
+                else:
+                    _block_size = block_size
+
+                if prune:
+                    vec[np.where((vec < 0.1) * (vec > 0))[0]] = 0
+                    vec[np.where((vec > -0.1) * (vec < 0))[0]] = 0
+                    print(len(np.where(vec == 0)[0]))
+
+                encoded = []
+
+                for i in range(int(np.ceil(len(vec) / _block_size))):
+
+                    w_vec = vec[i*_block_size:(i+1) * _block_size]
+                    Rx, MRx = self.calcAutoCorrelationMatrix(w_vec, k)
+
+                    a = np.linalg.solve(MRx, Rx[1:])
+                    self.parameters["a"].append(a)
+                    diff, prediction = self.predict(w_vec, a, k)
+                    partition, codebook = partition_codebook(diff, bits, uniform)
+
+                    encoded.append(self.encode(w_vec, a, k, codebook, partition))
+
+                encoded = [j for sub in encoded for j in sub]
+
+
 
                 if one_to_many:
                     w = np.reshape(encoded, shape)

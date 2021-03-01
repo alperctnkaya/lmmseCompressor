@@ -2,14 +2,14 @@ from utils import *
 
 
 class decompressor:
-    def __init__(self, model, parameters):
-        self.decompressedModel = self.decompress(model,parameters)
+    def __init__(self, model, parameters, block_size=0):
+        self.decompressedModel = self.decompress(model,parameters, block_size)
 
-    def decompress(self, model, paramters):
-        one_to_many = True
+    def decompress(self, model, parameters, block_size):
+        one_to_many = False
 
-        a = paramters["a"]
-        means = paramters["means"]
+        a = parameters["a"]
+        means = parameters["means"]
         a = iter(a)
         means = iter(means)
 
@@ -23,14 +23,25 @@ class decompressor:
                     length = l * length
 
                 if one_to_many:
-                    w_vec = np.reshape(layer.weights[0].numpy(), (1, length))[0]
+                    vec = np.reshape(layer.weights[0].numpy(), (1, length))[0]
                 else:
                     if len(shape) == 4:
-                        w_vec = np.reshape(np.transpose(layer.weights[0].numpy(), (0, 1, 3, 2)), (1, length))[0]
+                        vec = np.reshape(np.transpose(layer.weights[0].numpy(), (0, 1, 3, 2)), (1, length))[0]
                     else:
-                        w_vec = np.reshape(np.transpose(layer.weights[0].numpy()), (1, length))[0]
+                        vec = np.reshape(np.transpose(layer.weights[0].numpy()), (1, length))[0]
 
-                decoded = self.decode(w_vec, next(a))
+                if (block_size == 0) or (block_size > len(vec)):
+                    _block_size = len(vec)
+                else:
+                    _block_size = block_size
+
+                decoded = []
+
+                for i in range(int(np.ceil(len(vec) / _block_size))):
+                    w_vec = vec[i * _block_size:(i + 1) * _block_size]
+                    decoded.append(self.decode(w_vec, next(a)))
+
+                decoded = [j for sub in decoded for j in sub]
 
                 if one_to_many:
                     w = np.reshape(decoded, shape)

@@ -8,7 +8,7 @@ from tensorflow.keras.datasets import cifar10
 from tensorflow import keras
 
 if __name__ == "__main__":
-    modelPath = "mnist_conv_small"
+    modelPath = "lenet-300-100"
     model = keras.models.load_model(modelPath)
 
     (x_train, y_train), (x_test, y_test) = keras.datasets.mnist.load_data()
@@ -24,19 +24,20 @@ if __name__ == "__main__":
     print("Original Model:")
     model.evaluate(x_test, y_test)
 
-    k = 32
-    bits = 4
-    uniform = True  #uniform or non uniform quantization of model weights
+    k = 16
+    bits = 2
+    uniform = False  #uniform or non uniform quantization of model weights
+    block_size = 0
 
-    c = compressor(model, k, bits, uniform)
+    c = compressor(model, k, bits, uniform, block_size)
     compressedModel = c.compressedModel
     parameters = c.parameters
 
-    h = huffmanCompressor(compressedModel, bits, k)
     print("Compressed:")
-    print("huffman Compression Ratio:", h.compressionRatio)
+    #h = huffmanCompressor(compressedModel, bits, k)
+    #print("huffman Compression Ratio:", h.compressionRatio)
 
-    d = decompressor(compressedModel, parameters)
+    d = decompressor(compressedModel, parameters, block_size)
     decompressedModel = d.decompressedModel
 
     decompressedModel.evaluate(x_test, y_test)
@@ -45,8 +46,8 @@ if __name__ == "__main__":
     q = quantizer(model, bits, uniform)
     quantizedModel = q.quantizedModel
 
-    h_q = huffmanCompressor(quantizedModel, bits, k)
     print("Quantized:")
-    print("huffman Compression Ratio:", h_q.compressionRatio)
+    #h_q = huffmanCompressor(quantizedModel, bits, k)
+    #print("huffman Compression Ratio:", h_q.compressionRatio)
 
     quantizedModel.evaluate(x_test, y_test)
